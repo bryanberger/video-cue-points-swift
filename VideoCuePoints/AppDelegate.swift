@@ -13,63 +13,90 @@ var output:AVCaptureMovieFileOutput = AVCaptureMovieFileOutput()
 var session:AVCaptureSession = AVCaptureSession()
 var input:AVCaptureScreenInput = AVCaptureScreenInput()
 var menu = NSMenu()
-var timer = NSTimer()
-var timeCountInSeconds:Int = 0
+var recordingDirectory:String = ""
+var currentRecordingDateString:String = ""
+var isRecording:Bool = false
 
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecordingDelegate {
-
+    
     let statusItem = NSStatusBar.systemStatusBar().statusItemWithLength(-2)
-
+    
     func applicationDidFinishLaunching(aNotification: NSNotification) {
+        // close ViewController
         NSApplication.sharedApplication().windows.last!.close()
         
+        // setup
+        createMenu()
+        createRecordingsDirectory()
+    }
+    
+    func createMenu() {
+        // status bar menu item icon
         if let button = statusItem.button {
             button.image = NSImage(named: "StatusBarButtonImage")
         }
-        
-        menu.addItem(NSMenuItem(title: "Start Recording", action: #selector(AppDelegate.setupCameraSession(_:)), keyEquivalent: "R"))
-        menu.addItem(NSMenuItem(title: "Add Cue Point", action: #selector(AppDelegate.addCuePoint(_:)), keyEquivalent: "C"))
+
+        // add items
+        menu.autoenablesItems = false
+        menu.addItem(NSMenuItem(title: "Start Recording", action: #selector(setupCameraSession(_:)), keyEquivalent: "R"))
+        menu.addItem(NSMenuItem(title: "Add Cue Point", action: #selector(addCuePoint(_:)), keyEquivalent: "C"))
         menu.addItem(NSMenuItem.separatorItem())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.sharedApplication().terminate(_:)), keyEquivalent: "q"))
+        
+        // disable cue point item until recording starts
+        menu.itemAtIndex(1)?.enabled = isRecording
         
         statusItem.menu = menu
     }
     
-    func updateMenu() {
+    func createRecordingsDirectory() {
+        do {
         
+            let homeDirectory = NSHomeDirectory()
+            recordingDirectory = homeDirectory + "/GA Video Recordings/"
+            
+            if (!NSFileManager.defaultManager().fileExistsAtPath(recordingDirectory)) {
+                try NSFileManager.defaultManager().createDirectoryAtPath(recordingDirectory, withIntermediateDirectories: false, attributes: nil)
+            }
+        } catch let error as NSError {
+            NSLog("\(error), \(error.localizedDescription)")
+        }
+    }
+    
+    func updateMenu() {
+        if(isRecording) {
+            menu.itemAtIndex(1)?.enabled = isRecording
+            menu.itemAtIndex(0)?.title = "Stop Recording"
+            menu.itemAtIndex(0)?.action = #selector(self.stopRecording(_:))
+            
+        } else {
+            menu.itemAtIndex(1)?.enabled = isRecording
+            menu.itemAtIndex(0)?.title = "Start Recording"
+            menu.itemAtIndex(0)?.action = #selector(self.setupCameraSession(_:))
+        }
     }
     
     func addCuePoint(sender:AnyObject) {
-        print("addCuePoint")
-        
-//        let documents = try! NSFileManager.defaultManager().URLForDirectory(.DocumentDirectory, inDomain: .UserDomainMask, appropriateForURL: nil, create: false)
-//        let path = documents.URLByAppendingPathComponent("votes").path!
-//        
-//        if let outputStream = NSOutputStream(toFileAtPath: path, append: true) {
-//            outputStream.open()
-//            let text = "some text"
-//            outputStream.write(text)
-//            
-//            outputStream.close()
-//        } else {
-//            print("Unable to open file")
-//        }
-        
+        /* TODO: get this to append same as the node version */
+        if(isRecording) {
+            do {
+                //let now = round(CMTimeGetSeconds(output.recordedDuration))
+                let now = String(format: "%.0f", round(CMTimeGetSeconds(output.recordedDuration)))
+                try now.writeToFile(recordingDirectory + "Cue Points " + currentRecordingDateString + ".log", atomically: false, encoding: NSUTF8StringEncoding);
+            } catch let error as NSError {
+                NSLog("\(error), \(error.localizedDescription)")
+            }
+        }
     }
-    
-    func countTime() {
-        print(timeCountInSeconds)
-        timeCountInSeconds += 1
-    }
+
     
     func setupCameraSession(sender:AnyObject) {
         do {
-            
             print("setupCameraSession")
             
             session = AVCaptureSession()
-            session.sessionPreset = AVCaptureSessionPresetHigh
+            session.sessionPreset = AVCaptureSessionPresetHigh // video quality
             
             input = AVCaptureScreenInput(displayID: CGMainDisplayID())
             input.cropRect = CGRectMake(0, 0, 0, 0)
@@ -79,12 +106,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecording
             
             output = AVCaptureMovieFileOutput()
             
-            
             let date = NSDateFormatter()
             date.dateFormat = "yyyy-mm-dd h.MM.ss a"
             let dateString = date.stringFromDate(NSDate())
-            
-            let outputPath = NSURL(fileURLWithPath: "/Users/bryanberger/Desktop/Recording " + dateString + ".mp4")
+            currentRecordingDateString = dateString
+
+            let outputPath = NSURL(fileURLWithPath: recordingDirectory + "Recording " + currentRecordingDateString + ".mp4")
             let audioDevice = AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeAudio)
             let audioInput = try AVCaptureDeviceInput(device: audioDevice)
             
@@ -100,23 +127,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecording
                 session.addInput(audioInput)
             }
             
+            // start running
             session.startRunning()
             output.startRecordingToOutputFileURL(outputPath, recordingDelegate: self)
+            isRecording = true
             
-            // timer for now
-            NSTimer.scheduledTimerWithTimeInterval(10, target: self, selector: #selector(self.stop), userInfo: nil, repeats: false)
-            
-            // create timer
-            timer = NSTimer.scheduledTimerWithTimeInterval(1, target: self, selector: #selector(self.countTime), userInfo: nil, repeats: true)
-            
+            // update menu items
+            updateMenu()
         } catch let error as NSError {
             NSLog("\(error), \(error.localizedDescription)")
+            isRecording = false
         }
     }
     
-    func stop() {
+    func stopRecording(sender: NSMenuItem) {
         NSLog("stop recording")
+        
         output.stopRecording()
+        isRecording = false
+        
+        // update menu items
+        updateMenu()
     }
     
     func captureOutput(captureOutput: AVCaptureFileOutput!, didPauseRecordingToOutputFileAtURL fileURL: NSURL!, fromConnections connections: [AnyObject]!) {
@@ -139,20 +170,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecording
         print("didFinishRecordingToOutputFileAtURL")
     }
 
-    
-    func printQuote(sender: AnyObject) {
-        let quoteText = "Never put off until tomorrow what you can do the day after tomorrow."
-        let quoteAuthor = "Mark Twain"
-        
-        print("\(quoteText) — \(quoteAuthor)")
-    }
-
     func applicationWillTerminate(aNotification: NSNotification) {
         // Insert code here to tear down your application
     }
-    
-    
-
-
 }
-

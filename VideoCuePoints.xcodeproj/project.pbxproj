@@ -475,6 +475,7 @@
 				DAF7E6981D6FB72F0036E2AF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		DAF7E6991D6FB72F0036E2AF /* Build configuration list for PBXNativeTarget "VideoCuePointsTests" */ = {
 			isa = XCConfigurationList;
@@ -483,6 +484,7 @@
 				DAF7E69B1D6FB72F0036E2AF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		DAF7E69C1D6FB72F0036E2AF /* Build configuration list for PBXNativeTarget "VideoCuePointsUITests" */ = {
 			isa = XCConfigurationList;
@@ -491,6 +493,7 @@
 				DAF7E69E1D6FB72F0036E2AF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

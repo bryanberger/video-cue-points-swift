@@ -16,6 +16,7 @@ var menu = NSMenu()
 var recordingDirectory:String = ""
 var currentRecordingDateString:String = ""
 var isRecording:Bool = false
+var cuePoints:[Int] = []
 
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecordingDelegate {
@@ -41,6 +42,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecording
         menu.autoenablesItems = false
         menu.addItem(NSMenuItem(title: "Start Recording", action: #selector(setupCameraSession(_:)), keyEquivalent: "R"))
         menu.addItem(NSMenuItem(title: "Add Cue Point", action: #selector(addCuePoint(_:)), keyEquivalent: "C"))
+        menu.addItem(NSMenuItem(title: "Show Recordings in Finder", action: #selector(showRecordingDirectoryInFinder(_:)), keyEquivalent: "S"))
         menu.addItem(NSMenuItem.separatorItem())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.sharedApplication().terminate(_:)), keyEquivalent: "q"))
         
@@ -77,15 +79,45 @@ class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecording
         }
     }
     
+    func showRecordingDirectoryInFinder(sender:AnyObject) {
+        NSWorkspace.sharedWorkspace().selectFile(nil, inFileViewerRootedAtPath: recordingDirectory)
+    }
+    
     func addCuePoint(sender:AnyObject) {
-        /* TODO: get this to append same as the node version */
         if(isRecording) {
             do {
-                //let now = round(CMTimeGetSeconds(output.recordedDuration))
-                let now = String(format: "%.0f", round(CMTimeGetSeconds(output.recordedDuration)))
-                try now.writeToFile(recordingDirectory + "Cue Points " + currentRecordingDateString + ".log", atomically: false, encoding: NSUTF8StringEncoding);
+                //let now = String(format: "%.0f", round(CMTimeGetSeconds(output.recordedDuration)))
+                let now = Int(CMTimeGetSeconds(output.recordedDuration))
+                cuePoints.append(now)
+                
+                let data = try NSJSONSerialization.dataWithJSONObject(cuePoints, options: .PrettyPrinted)
+                let string = String(data: data, encoding: NSUTF8StringEncoding)
+                
+                //writeToFile(string!)
+                try string!.writeToFile(recordingDirectory + "Cue Points " + currentRecordingDateString + ".json", atomically: false, encoding: NSUTF8StringEncoding);
             } catch let error as NSError {
                 NSLog("\(error), \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    func writeToFile(content: String) {
+        
+        let contentToAppend = content
+        let filePath = recordingDirectory + "Cue Points " + currentRecordingDateString + ".log"
+        
+        //Check if file exists
+        if let fileHandle = NSFileHandle(forWritingAtPath: filePath) {
+            //Append to file
+            fileHandle.seekToEndOfFile()
+            fileHandle.writeData(contentToAppend.dataUsingEncoding(NSUTF8StringEncoding)!)
+        }
+        else {
+            //Create new file
+            do {
+                try contentToAppend.writeToFile(filePath, atomically: true, encoding: NSUTF8StringEncoding)
+            } catch {
+                print("Error creating \(filePath)")
             }
         }
     }
@@ -111,7 +143,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecording
             let dateString = date.stringFromDate(NSDate())
             currentRecordingDateString = dateString
 
-            let outputPath = NSURL(fileURLWithPath: recordingDirectory + "Recording " + currentRecordingDateString + ".mp4")
+            let outputPath = NSURL(fileURLWithPath: recordingDirectory + "Recording " + currentRecordingDateString + ".mov")
             let audioDevice = AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeAudio)
             let audioInput = try AVCaptureDeviceInput(device: audioDevice)
             
@@ -145,6 +177,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecording
         
         output.stopRecording()
         isRecording = false
+        
+        // remove all cuePoints
+        cuePoints.removeAll()
         
         // update menu items
         updateMenu()

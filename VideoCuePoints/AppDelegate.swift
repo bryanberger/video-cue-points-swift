@@ -9,6 +9,7 @@
 import Cocoa
 import AVFoundation
 
+var viewController:NSWindowController = NSWindowController()
 var output:AVCaptureMovieFileOutput = AVCaptureMovieFileOutput()
 var session:AVCaptureSession = AVCaptureSession()
 var input:AVCaptureScreenInput = AVCaptureScreenInput()
@@ -24,9 +25,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecording
     let statusItem = NSStatusBar.systemStatusBar().statusItemWithLength(-2)
     
     func applicationDidFinishLaunching(aNotification: NSNotification) {
-        // close ViewController
-        NSApplication.sharedApplication().windows.last!.close()
+        // get preferences
+        NSUserDefaults.standardUserDefaults()
         
+        // close ViewController
+        //NSApplication.sharedApplication().windows.last!.close()
+        let storyboard:NSStoryboard = NSStoryboard(name: "Main", bundle: nil)
+        viewController = storyboard.instantiateControllerWithIdentifier("MainWindowController") as! NSWindowController        
+        // viewController.showWindow(self)
+
         // setup
         createMenu()
         createRecordingsDirectory()
@@ -42,7 +49,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecording
         menu.autoenablesItems = false
         menu.addItem(NSMenuItem(title: "Start Recording", action: #selector(setupCameraSession(_:)), keyEquivalent: "R"))
         menu.addItem(NSMenuItem(title: "Add Cue Point", action: #selector(addCuePoint(_:)), keyEquivalent: "C"))
-        menu.addItem(NSMenuItem(title: "Show Recordings in Finder", action: #selector(showRecordingDirectoryInFinder(_:)), keyEquivalent: "S"))
+        menu.addItem(NSMenuItem.separatorItem())
+        menu.addItem(NSMenuItem(title: "Preferences...", action: #selector(showPreferencesView(_:)), keyEquivalent: "P"))
+        menu.addItem(NSMenuItem(title: "Show Recordings...", action: #selector(showRecordingDirectoryInFinder(_:)), keyEquivalent: "S"))
         menu.addItem(NSMenuItem.separatorItem())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.sharedApplication().terminate(_:)), keyEquivalent: "q"))
         
@@ -50,6 +59,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, AVCaptureFileOutputRecording
         menu.itemAtIndex(1)?.enabled = isRecording
         
         statusItem.menu = menu
+    }
+    
+    func showPreferencesView(sender:NSMenuItem) {
+        viewController.showWindow(self)
     }
     
     func createRecordingsDirectory() {
